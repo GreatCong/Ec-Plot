@@ -20,5 +20,5 @@
 
 ### Master 
 
-* Qt4
-* Gcc
+* Linux: Qt4 and Gcc
+* Windows: Qt5 and VS2015
