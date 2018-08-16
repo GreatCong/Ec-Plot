@@ -36,6 +36,7 @@ win32{
   win32:DEFINES +=_CRT_SECURE_NO_WARNINGS __STDC_LIMIT_MACROS
   win32:include("modules/SOEM-win.pri")
   win32:include("modules/pthread-win.pri")
+  win32:HEADERS += user/c_source/platform/ethercat_compatible_win.h
   #指定生成的应用程序放置的目录
   win32: DESTDIR += $$PWD/build/win32/bin
   #指定目标文件(obj)的存放目录

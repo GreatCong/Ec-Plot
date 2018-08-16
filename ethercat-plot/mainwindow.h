@@ -53,12 +53,22 @@ private slots:
 
     void on_action_ecSend_triggered();
 
+    void on_checkBox_isPlotShowLegend_stateChanged(int arg1);
+
+    void on_pushButton_debug_clear_clicked();
+
+    void on_pushButton_ecScan_Adaptert_clicked();
+
+    void on_actionExit_triggered();
+
 private:
     Ui::MainWindow *ui;
 
     void Plot_init(QCustomPlot *customPlot);
     void Init_cores(void);
+    void Init_userUI(void);
     void Destroy_cores(void);
+    int ec_ScanAdapyert_ui(void);
 
     QLabel *statusBar_Label_ecSlavesNum;
     QLabel *statusBar_Label_permanent;

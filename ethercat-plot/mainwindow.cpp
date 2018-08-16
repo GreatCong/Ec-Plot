@@ -8,7 +8,6 @@
 #include <QtCore>
 #include <QMessageBox>
 
-//#include "ethercat.h"//windows下会报重定义的错误 貌似是wpcap库和windows网络库有冲突
 #include "soem_main.h"
 #include "my_queue.h"
 
@@ -18,12 +17,14 @@
 
 #ifdef _MSC_VER //windows
 #include "pthread.h"
-extern "C" extern int         ec_slavecount;//ethercatmain.h中定义
-char MY_NIC_Name[EC_MAXLEN_ADAPTERNAME_win] = {0};
+//NOTE: windows下 "nicdrv.h"中wpcap库和windows网络库有冲突中，会报重定义的错误，从而无法用"ethercat.h"
+//#include "ethercat.h"//windows下会报重定义的错误 貌似是wpcap库和windows网络库有冲突
+#include "platform/ethercat_compatible_win.h" //防止报错,从ethercat.h中截取看部分应用层的函数，供windows调用
 #else //linux
 #include "ethercat.h" //windows下会报重定义的错误 貌似是wpcap库和windows网络库有冲突
-char MY_NIC_Name[EC_MAXLEN_ADAPTERNAME] = {0};
 #endif
+
+char MY_NIC_Name[EC_MAXLEN_ADAPTERNAME] = {0};
 
 void* ec_thread_main(void* arg);
 pthread_t pthread_ecMain;
@@ -61,8 +62,8 @@ void MainWindow::Destroy_cores()
 
 }
 
-void MainWindow::Init_cores(void){
-
+//初始化UI界面
+void MainWindow::Init_userUI(void){
     statusBar_Label_ecSlavesNum = new QLabel(this);
    //    statusBar_Label_ecSlavesNum->setFrameShape(QFrame::WinPanel);
    //    statusBar_Label_ecSlavesNum->setFrameShadow(QFrame::Sunken);
@@ -91,7 +92,15 @@ void MainWindow::Init_cores(void){
        ui->checkBox_CH3->setChecked(true);
        ui->checkBox_CH4->setChecked(true);
 
+       ui->checkBox_isPlotShowLegend->setChecked(true);
+
        ui->plainTextEdit_displayDebug->setStyleSheet("background-color:gray");
+}
+
+//初始化用户相关配置
+void MainWindow::Init_cores(void){
+
+       Init_userUI();
 
        Plot_init(ui->customPlot_ecPlot);
 
@@ -150,6 +159,7 @@ void MainWindow::on_pushButton_ecRun_clicked()
 void MainWindow::timerUpDate()
 {
     static int ii;
+    static elemType data_channels[4];
 //       QDateTime time = QDateTime::currentDateTime();//获取系统现在的时间
 
 //       QString str = time.toString("yyyy-MM-dd hh:mm:ss dddd");//设置系统时间显示格式
@@ -201,6 +211,12 @@ void MainWindow::timerUpDate()
            statusBar_Label_test->setText(QString::number(ii));
 
             if(!emptyQueue(&my_ecQueue.my_ecQueue_ch1)){
+                //用于在editline中显示
+                data_channels[0] = peekQueue(&my_ecQueue.my_ecQueue_ch1);
+                data_channels[1] = peekQueue(&my_ecQueue.my_ecQueue_ch2);
+                data_channels[2] = peekQueue(&my_ecQueue.my_ecQueue_ch3);
+                data_channels[3] = peekQueue(&my_ecQueue.my_ecQueue_ch4);
+
                while(!emptyQueue(&my_ecQueue.my_ecQueue_ch1)){
                     ui->customPlot_ecPlot->graph(0)->addData(ii++,outQueue(&my_ecQueue.my_ecQueue_ch1));
                     ui->customPlot_ecPlot->graph(1)->addData(ii++,outQueue(&my_ecQueue.my_ecQueue_ch2));
@@ -219,9 +235,15 @@ void MainWindow::timerUpDate()
             if(isAutoZoom[1])
                 ui->customPlot_ecPlot->graph(1)->rescaleValueAxis();
             if(isAutoZoom[2])
-                ui->customPlot_ecPlot->graph(2)->rescaleValueAxis();
+                ui->customPlot_ecPlot->graph(2)->rescaleValueAxis();          
             if(isAutoZoom[3])
                 ui->customPlot_ecPlot->graph(3)->rescaleValueAxis();
+
+
+            if(ui->checkBox_CH1->isChecked()) ui->lineEdit_CH1->setText(QString::number(data_channels[0]));
+            if(ui->checkBox_CH2->isChecked()) ui->lineEdit_CH2->setText(QString::number(data_channels[1]));
+            if(ui->checkBox_CH3->isChecked()) ui->lineEdit_CH3->setText(QString::number(data_channels[2]));
+            if(ui->checkBox_CH4->isChecked()) ui->lineEdit_CH4->setText(QString::number(data_channels[3]));
 
           ui->customPlot_ecPlot->xAxis->setRange(-10, 1024);
            //这里的8，是指横坐标时间宽度为8秒，如果想要横坐标显示更多的时间
@@ -266,7 +288,7 @@ void MainWindow::Plot_init(QCustomPlot *customPlot){
     //customPlot->setBackground(QBrush(Qt::black));
     customPlot->setBackground(QBrush(QColor::fromRgb(100,156,199)));
      //设定右上角图形标注可见
-//    customPlot->legend->setVisible(true);
+    customPlot->legend->setVisible(true);
     //设定右上角图形标注的字体
     customPlot->legend->setFont(QFont("Helvetica", 9));
     //向绘图区域QCustomPlot(从widget提升来的)添加一条曲线
@@ -319,24 +341,7 @@ void MainWindow::on_pushButton_ecStop_clicked()
     pthread_join(pthread_ecMain, NULL);//释放资源
 }
 
-void MainWindow::on_action_ScanAdapyert_triggered()
-{
-   #ifdef _MSC_VER //windows
-//    QMessageBox::warning(this, tr("warning"), tr("ec_adaptert not used in windows!"));
-    ui->comboBox_ecadaptert->clear();
-    ui->comboBox_ecadaptert_dec->clear();
-     ec_adaptert_win * adapter = NULL;
-     adapter = print_ec_adaptert();
-
-     while (adapter != NULL)
-     {
-//        printf ("Description : %s, Device to use for wpcap: %s\n", adapter->desc,adapter->name);
-         ui->comboBox_ecadaptert_dec->addItem(adapter->desc);//windows下添加网口描述，因为网口名字是一堆的数字！！
-         ui->comboBox_ecadaptert->addItem(adapter->name);
-//         qDebug("%s",adapter->desc);
-        adapter = adapter->next;
-     }
-   #else //linux
+int MainWindow::ec_ScanAdapyert_ui(void){
     ui->comboBox_ecadaptert->clear();
     ui->comboBox_ecadaptert_dec->clear();
 
@@ -348,10 +353,16 @@ void MainWindow::on_action_ScanAdapyert_triggered()
          {
     //        printf ("Description : %s, Device to use for wpcap: %s\n", adapter->desc,adapter->name);
              ui->comboBox_ecadaptert->addItem(adapter->name);
-             ui->comboBox_ecadaptert_dec->addItem(adapter->desc);
+             ui->comboBox_ecadaptert_dec->addItem(adapter->desc);//windows下添加网口描述，因为网口名字是一堆的数字！！
             adapter = adapter->next;
          }
-  #endif
+    return 0;
+}
+
+void MainWindow::on_action_ScanAdapyert_triggered()
+{
+    ec_ScanAdapyert_ui();
+    ui->statusBar->showMessage(tr("Scan OK!"),3000);
 }
 
 void MainWindow::on_pushButton_ecSendProcessData_clicked()
@@ -498,9 +509,7 @@ void MainWindow::on_action_windowsMax_triggered()
 
 void MainWindow::on_pushButton_ecScan_clicked()
 {
-#ifdef _MSC_VER
-    QMessageBox::warning(this, tr("warning"), tr("ec_adaptert not used in windows!"));
-#else
+
     int ec_adaptert_count = ui->comboBox_ecadaptert->count();
     if(ec_adaptert_count < 1){
        QMessageBox::warning(this, tr("warning"), tr("ec_adaptert_count=0!"));
@@ -545,6 +554,36 @@ void MainWindow::on_pushButton_ecScan_clicked()
         }
 
     }
-#endif
+
 }
 
+void MainWindow::on_checkBox_isPlotShowLegend_stateChanged(int arg1)
+{
+//    qDebug() <<arg1 << true;
+//    if(ui->checkBox_isPlotShowLegend->isChecked()){
+//         ui->customPlot_ecPlot->legend->setVisible(true);
+//         ui->customPlot_ecPlot->replot();
+//    }
+//    else{
+//         ui->customPlot_ecPlot->legend->setVisible(false);
+//         ui->customPlot_ecPlot->replot();
+//    }
+    ui->customPlot_ecPlot->legend->setVisible(arg1);
+    ui->customPlot_ecPlot->replot();
+}
+
+void MainWindow::on_pushButton_debug_clear_clicked()
+{
+    ui->plainTextEdit_displayDebug->clear();
+}
+
+void MainWindow::on_pushButton_ecScan_Adaptert_clicked()
+{
+    ec_ScanAdapyert_ui();
+    ui->statusBar->showMessage(tr("Scan OK!"),3000);
+}
+
+void MainWindow::on_actionExit_triggered()
+{
+    QApplication::quit();
+}

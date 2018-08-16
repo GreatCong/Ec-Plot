@@ -560,26 +560,3 @@ void my_ec_test(char *ifname)
         printf("No socket connection on %s\nExcecute as root\n",ifname);
     }
 }
-
-ec_adaptert_win* print_ec_adaptert(void){ //打印网络适配器
-
-   ec_adaptert * adapter = NULL;
-
-//   printf("Usage: slaveinfo ifname [options]\nifname = eth0 for example\nOptions :\n -sdo : print SDO info\n -map : print mapping\n");
-
-//   printf ("Available adapters\n");
-   adapter = ec_find_adapters ();
-//   while (adapter != NULL)
-//   {
-//    printf ("Description : %s, Device to use for wpcap: %s\n", adapter->desc,adapter->name);
-//      adapter = adapter->next;
-//   }
-
-   return (ec_adaptert_win*)adapter;
-}
-
-int print_ec_adaptert_free(ec_adaptert_win * adapter)
-{
-   ec_free_adapters ((ec_adaptert*)adapter);
-   return 0;
-}
